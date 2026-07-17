@@ -1,0 +1,14 @@
+universe: 12277 markets
+[0:01:00.110081] bars files: 3854 | {'q_ok': 748, 'q_err': 0, 't_ok': 68, 't_err': 0}
+[0:02:00.152310] bars files: 4175 | {'q_ok': 1123, 'q_err': 0, 't_ok': 415, 't_err': 0}
+[0:03:00.165341] bars files: 4509 | {'q_ok': 1494, 'q_err': 0, 't_ok': 706, 't_err': 0}
+[0:04:00.259511] bars files: 4836 | {'q_ok': 1861, 'q_err': 0, 't_ok': 1052, 't_err': 0}
+[0:05:00.503748] bars files: 5175 | {'q_ok': 2244, 'q_err': 0, 't_ok': 1399, 't_err': 0}
+[0:06:00.617571] bars files: 5543 | {'q_ok': 2659, 'q_err': 0, 't_ok': 1725, 't_err': 0}
+[0:07:00.793383] bars files: 5882 | {'q_ok': 3038, 'q_err': 0, 't_ok': 2041, 't_err': 0}
+[0:08:00.878343] bars files: 6227 | {'q_ok': 3427, 'q_err': 0, 't_ok': 2391, 't_err': 0}
+[0:09:00.986702] bars files: 6569 | {'q_ok': 3816, 'q_err': 0, 't_ok': 2733, 't_err': 0}
+[0:10:01.107540] bars files: 6926 | {'q_ok': 4213, 'q_err': 0, 't_ok': 3071, 't_err': 0}
+[0:11:01.200545] bars files: 7272 | {'q_ok': 4603, 'q_err': 0, 't_ok': 3424, 't_err': 0}
+[0:12:01.267656] bars files: 7609 | {'q_ok': 4985, 'q_err': 0, 't_ok': 3736, 't_err': 0}
+[0:13:01.370781] bars files: 7930 | {'q_ok': 5343, 'q_err': 0, 't_ok': 4070, 't_err': 0}
