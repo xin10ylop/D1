@@ -6,3 +6,4 @@ data/
 *.duckdb
 .ipynb_checkpoints/
 scratch/
+logs/
