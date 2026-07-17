@@ -1,3 +1,6 @@
 hypothesis,strategy,sample,n_trades,hit_rate,ev_per_share,notes
 H11,ladder_monotonicity_taker_touch,pilot_jun_jul_2026,1043,,-0.012,"BTC: 1043 violations, median gross 0.1c; both legs taker fee => negative net. ETH 0.8c marginal. SOL large edges are ghost quotes (5-share stale asks in dead deep-ITM strikes). REJECTED at touch/taker; revisit with depth+maker."
 H1H2,buy_yes_fv_gap_10c_taker_hold,pilot_jun_jul_2026(6 events),97,0.773,0.1611,"TOO GOOD - only 6 expiry events, one week, label rate 77 vs 60 base; unproven direction luck. NO side NEGATIVE (-0.08). Re-test on full sample."
+H9,hourly_taker_thresholds,hourly_sample_jun27_jul16_BTC,78,0.269,-0.0291,"All YES/NO taker thresholds 2-10c: EV -8c..+1c, t<=0. 7pct fee killed hourly latency arb; FV-cheap signals are adverse selection at 1h horizon. REJECTED (taker). Maker untested (needs book fills)."
+H21,tape_flow_contrarian,partial_trades_5.6k_files,13898,,-0.0013,Hourly-aggregated aggressor imbalance mildly contrarian (heavy buys -> -0.13c next hour). Too small standalone; candidate entry-timing filter.
+EXEC,depth_slippage_at_signals,pilot_books_386_days,928,,,"Median slip over quoted ask: $200:0-0.75c, $500:0.3-1c, $1000:0.8-1.1c, $2000:1.1-1.7c (p90 5-6c). Fill frac ~100% within 25 levels. Taker at $1-2k needs 3-4c+ gross gap."
