@@ -1,0 +1,8 @@
+.env
+__pycache__/
+*.pyc
+data/
+*.parquet
+*.duckdb
+.ipynb_checkpoints/
+scratch/
