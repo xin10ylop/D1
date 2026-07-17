@@ -12,3 +12,9 @@ universe: 12277 markets
 [0:11:01.200545] bars files: 7272 | {'q_ok': 4603, 'q_err': 0, 't_ok': 3424, 't_err': 0}
 [0:12:01.267656] bars files: 7609 | {'q_ok': 4985, 'q_err': 0, 't_ok': 3736, 't_err': 0}
 [0:13:01.370781] bars files: 7930 | {'q_ok': 5343, 'q_err': 0, 't_ok': 4070, 't_err': 0}
+[0:14:01.475930] bars files: 8279 | {'q_ok': 5735, 'q_err': 0, 't_ok': 4373, 't_err': 0}
+[0:15:01.576722] bars files: 8607 | {'q_ok': 6103, 'q_err': 0, 't_ok': 4679, 't_err': 0}
+[0:16:02.044170] bars files: 8916 | {'q_ok': 6457, 'q_err': 0, 't_ok': 4990, 't_err': 0}
+[0:17:02.221476] bars files: 9264 | {'q_ok': 6849, 'q_err': 0, 't_ok': 5273, 't_err': 0}
+[0:18:02.488663] bars files: 9596 | {'q_ok': 7218, 'q_err': 0, 't_ok': 5597, 't_err': 0}
+[0:19:02.926499] bars files: 9940 | {'q_ok': 7606, 'q_err': 0, 't_ok': 5951, 't_err': 0}

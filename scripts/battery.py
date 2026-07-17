@@ -85,6 +85,108 @@ def battery_thresholds(panels, sample="train"):
     return pd.DataFrame(rows)
 
 
+def battery_maker(panels, sample="train", horizon_bars=8):
+    """Maker variant: rest a YES bid at (best_bid + 0.01) when gap vs FV is wide.
+
+    Fill rule (conservative): filled only if a later bar within horizon has
+    ask <= limit (book traded through the limit). Fee = 0. EV to settlement.
+    """
+    rows = []
+    allp = pd.concat(panels, ignore_index=True)
+    m = allp[allp.is_test] if sample == "test" else allp[~allp.is_test]
+    m = m[(m.ask > 0.02) & (m.ask < 0.98)]
+    for side in ["yes", "no"]:
+        for thr in [0.01, 0.02, 0.03]:
+            if side == "yes":
+                sel = m[m.fv - (m.bid + 0.01) - 0.0 > thr]  # edge at our limit price
+            else:
+                sel = m[(1 - m.ask + 0.01) - (1 - m.fv) > thr]
+            sel = dedup_trades(sel, cols=("slug",), cooldown_h=24)
+            trades = []
+            for r in sel.itertuples():
+                g = allp[(allp.slug == r.slug) & (allp.ts > r.ts)].head(horizon_bars)
+                if len(g) == 0:
+                    continue
+                if side == "yes":
+                    lim = r.bid + 0.01
+                    fill = g[g.ask <= lim]
+                    if len(fill) == 0:
+                        continue
+                    f0 = fill.iloc[0]
+                    ev_raw = r.label - lim
+                    ev_h = ev_raw - r.delta * r.ret_T
+                else:
+                    lim_no = (1 - r.ask) + 0.01  # our NO bid; YES ask equivalent = 1-lim_no
+                    fill = g[g.bid >= 1 - lim_no]
+                    if len(fill) == 0:
+                        continue
+                    ev_raw = (1 - r.label) - lim_no
+                    ev_h = ev_raw + r.delta * r.ret_T
+                trades.append(dict(asset=r.asset, event=r.event, slug=r.slug,
+                                   ev_raw=ev_raw, ev_hedged=ev_h, label=r.label))
+            d = pd.DataFrame(trades)
+            if len(d) < 5:
+                continue
+            st = clustered_stats(d)
+            st["fill_rate"] = len(d) / max(len(sel), 1)
+            rows.append(dict(family="maker_rest", side=side, thr=thr, sample=sample, **st))
+    return pd.DataFrame(rows)
+
+
+def battery_weekend_hours(panels, sample="train"):
+    """H4/H28: does the gap structure differ by UTC hour-of-day / weekend?"""
+    allp = pd.concat(panels, ignore_index=True)
+    m = allp[allp.is_test] if sample == "test" else allp[~allp.is_test]
+    m = m[(m.ask > 0.05) & (m.ask < 0.95)].copy()
+    m["hour"] = m.dt.dt.hour
+    m["wend"] = m.dt.dt.dayofweek >= 5
+    t1 = m.groupby("wend")[["gap_yes", "gap_no", "spread"]].mean().round(4)
+    t2 = m.groupby(m.hour // 4)[["gap_yes", "gap_no", "spread"]].mean().round(4)
+    return t1, t2
+
+
+def battery_calendar(panels, sample="train"):
+    """H10/H13: same strike, adjacent expiries. PM conditional migration vs options.
+
+    For expiry pair (T1<T2), same K: no-arb needs P(S_T2>K) >= P(S_T1>K) - P(down move)...
+    We use the options surface directly: compare PM spread (p2-p1) to FV spread (fv2-fv1);
+    trade when they disagree by > thr on executable quotes (buy cheap leg, sell rich leg
+    via its NO). Both legs taker.
+    """
+    rows = []
+    allp = pd.concat(panels, ignore_index=True)
+    m = allp[allp.is_test] if sample == "test" else allp[~allp.is_test]
+    m = m[(m.ask > 0.03) & (m.ask < 0.97)]
+    for (asset, K, ts), g in m.groupby(["asset", "K", "ts"]):
+        if g.T_pm.nunique() < 2:
+            continue
+        g = g.sort_values("T_pm")
+        for i in range(len(g) - 1):
+            a, b = g.iloc[i], g.iloc[i + 1]
+            if b.T_pm - a.T_pm > 3 * 86400:
+                continue
+            pm_spr_ask = b.ask - a.bid   # cost of long T2 / short T1 (buy NO on T1)
+            fv_spr = b.fv - a.fv
+            edge_long2 = fv_spr - pm_spr_ask - fee(b.ask) - fee(1 - a.bid)
+            pm_spr_bid = b.bid - a.ask
+            edge_long1 = pm_spr_bid - fv_spr - fee(a.ask) - fee(1 - b.bid)
+            if edge_long2 > 0.01:
+                ev = (b.label - a.label) - pm_spr_ask - fee(b.ask) - fee(1 - a.bid)
+                rows.append(dict(asset=asset, K=K, ts=ts, event=b.event, dir="long_far",
+                                 edge=edge_long2, ev=ev))
+            if edge_long1 > 0.01:
+                ev = (a.label - b.label) - (a.ask - b.bid) - fee(a.ask) - fee(1 - b.bid)
+                rows.append(dict(asset=asset, K=K, ts=ts, event=b.event, dir="long_near",
+                                 edge=edge_long1, ev=ev))
+    d = pd.DataFrame(rows)
+    if len(d) == 0:
+        return d, {}
+    d = dedup_trades(d.assign(slug=d.asset + d.K.astype(str) + d.dir), cooldown_h=24)
+    g = d.groupby(["asset", "event"])["ev"].mean()
+    return d, {"n": len(d), "ev": d.ev.mean(), "n_events": len(g),
+               "t": g.mean() / (g.std() / max(np.sqrt(len(g)), 1)) if len(g) > 2 else np.nan}
+
+
 if __name__ == "__main__":
     assets = sys.argv[1:] if len(sys.argv) > 1 else ["BTC", "ETH", "SOL", "XRP"]
     panels = [prep(a) for a in assets]
