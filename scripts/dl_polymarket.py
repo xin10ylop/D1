@@ -91,6 +91,8 @@ async def do_market(row, sem, results):
                 with open(LOG / "pm_errors.log", "a") as f:
                     f.write(f"quotes {slug} {day} {e}\n")
     # trades
+    if QUOTES_ONLY:
+        return
     if str(row.trades_from) not in ("", "None", "nan"):
         for day in day_range(row.trades_from, row.trades_to):
             tf = TRADES / f"polymarket_trades_{day}_{slug}_Yes.parquet"
@@ -111,7 +113,12 @@ async def do_market(row, sem, results):
                         f.write(f"trades {slug} {day} {e}\n")
 
 
+QUOTES_ONLY = False
+
+
 async def main():
+    global QUOTES_ONLY
+    QUOTES_ONLY = "--quotes-only" in sys.argv
     workers = int(sys.argv[1]) if len(sys.argv) > 1 else 8
     uni = universe()
     uni = uni.sort_values("end_dt", ascending=False)  # newest first
