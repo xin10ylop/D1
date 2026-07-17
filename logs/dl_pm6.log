@@ -1,0 +1,17 @@
+universe: 12277 markets
+[0:01:02.369978] bars files: 21079 | {'q_ok': 658, 'q_err': 0, 't_ok': 0, 't_err': 0}
+[0:02:02.702127] bars files: 21079 | {'q_ok': 1236, 'q_err': 0, 't_ok': 0, 't_err': 0}
+[0:03:03.978355] bars files: 21079 | {'q_ok': 1905, 'q_err': 0, 't_ok': 0, 't_err': 0}
+[0:04:04.644482] bars files: 21079 | {'q_ok': 2608, 'q_err': 0, 't_ok': 0, 't_err': 0}
+[0:05:05.209344] bars files: 21231 | {'q_ok': 3049, 'q_err': 0, 't_ok': 141, 't_err': 0}
+[0:06:05.580347] bars files: 21496 | {'q_ok': 3343, 'q_err': 0, 't_ok': 324, 't_err': 0}
+[0:07:06.830475] bars files: 21732 | {'q_ok': 3615, 'q_err': 0, 't_ok': 589, 't_err': 0}
+[0:08:07.810583] bars files: 21986 | {'q_ok': 3899, 'q_err': 0, 't_ok': 839, 't_err': 0}
+[0:09:07.967185] bars files: 22270 | {'q_ok': 4216, 'q_err': 0, 't_ok': 1037, 't_err': 0}
+[0:10:08.317303] bars files: 22519 | {'q_ok': 4504, 'q_err': 0, 't_ok': 1293, 't_err': 0}
+[0:11:09.153854] bars files: 22779 | {'q_ok': 4790, 'q_err': 0, 't_ok': 1532, 't_err': 0}
+[0:12:09.899723] bars files: 23054 | {'q_ok': 5099, 'q_err': 0, 't_ok': 1718, 't_err': 0}
+[0:13:10.645957] bars files: 23297 | {'q_ok': 5377, 'q_err': 0, 't_ok': 1979, 't_err': 0}
+[0:14:11.058042] bars files: 23542 | {'q_ok': 5650, 'q_err': 0, 't_ok': 2219, 't_err': 0}
+[0:15:11.981462] bars files: 23813 | {'q_ok': 5955, 'q_err': 0, 't_ok': 2436, 't_err': 0}
+[0:16:12.712128] bars files: 24059 | {'q_ok': 6242, 'q_err': 0, 't_ok': 2678, 't_err': 0}
