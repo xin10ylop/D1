@@ -1,13 +1,19 @@
 import os, json, time, pathlib
-from dotenv import load_dotenv
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-load_dotenv(ROOT / ".env")
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv(ROOT / ".env")
+except Exception:
+    pass  # dotenv is only needed for data-fetch scripts, not the paper/live bot
 
 DATA = ROOT / "data"
 DATA.mkdir(exist_ok=True)
 
-TLX_KEY = os.environ["TELONEX_API_KEY"]
+# Only the historical data-download scripts need this; the bot runs on public
+# APIs and does not. Absent key -> None (crash only if a fetch script uses it).
+TLX_KEY = os.environ.get("TELONEX_API_KEY")
 
 ASSETS = ["BTC", "ETH", "SOL", "XRP"]
 ASSET_WORD = {"BTC": "bitcoin", "ETH": "ethereum", "SOL": "solana", "XRP": "xrp"}
