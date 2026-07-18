@@ -9,10 +9,18 @@ set -u
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 mkdir -p logs
+
+# Singleton: only one runner may exist (prevents duplicate-bot spawn races).
+exec 9>"$ROOT/logs/.runner.lock"
+if ! flock -n 9; then
+  echo "$(date -u) another runner already holds the lock; exiting" >> logs/paperbot_runner.log
+  exit 0
+fi
+
 LAST_COMMIT=0
 while true; do
-  if ! pgrep -f "python3 scripts/paperbot.py$" > /dev/null; then
-    ( cd "$ROOT/scripts" && nohup python3 paperbot.py >> "$ROOT/logs/paperbot.log" 2>&1 & )
+  if ! pgrep -f "paperbot.py --daemon" > /dev/null; then
+    ( cd "$ROOT/scripts" && nohup python3 paperbot.py --daemon >> "$ROOT/logs/paperbot.log" 2>&1 & )
     echo "$(date -u) paperbot (re)started" >> logs/paperbot_runner.log
   fi
   if [ "${PAPERBOT_GIT:-0}" = "1" ]; then

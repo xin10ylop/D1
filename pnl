@@ -1,0 +1,4 @@
+#!/bin/bash
+# Quick review of the paper bot: bankroll, P&L, win rate, open + closed trades.
+cd "$(dirname "${BASH_SOURCE[0]}")"
+exec python3 scripts/status.py

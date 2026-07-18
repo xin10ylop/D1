@@ -21,7 +21,7 @@ State: results/paperbot/state.json (bankroll, positions), trades.csv, journal.lo
 Run: python3 scripts/paperbot.py --once   (single scan)
      python3 scripts/paperbot.py          (loop every 10 min)
 """
-import sys, json, time, math, re, pathlib, datetime as dt
+import sys, os, json, time, math, re, pathlib, datetime as dt
 import urllib.request, urllib.parse
 import numpy as np
 import pandas as pd
@@ -401,6 +401,16 @@ if __name__ == "__main__":
     if "--once" in sys.argv:
         scan_once()
     else:
+        # Singleton guard: at most one daemon regardless of how many runners exist.
+        import fcntl
+        _lock = open(PB / ".bot.lock", "w")
+        try:
+            fcntl.flock(_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            log("another paperbot daemon already running; exiting")
+            sys.exit(0)
+        _lock.write(str(os.getpid())); _lock.flush()
+        log("daemon started (singleton lock acquired)")
         while True:
             try:
                 scan_once()
