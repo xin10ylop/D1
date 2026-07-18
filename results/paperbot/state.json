@@ -1,0 +1,25 @@
+{
+ "bankroll": 100.0,
+ "positions": [
+  {
+   "asset": "ETH",
+   "slug": "ethereum-above-1800-on-july-20-2026",
+   "K": 1800.0,
+   "T_pm": 1784563260.0,
+   "yes_token": "24809417395265410000335110764207610929183311710036755837695557418702560517837",
+   "mode": "maker_pending",
+   "entry": 0.81,
+   "shares": 12.35,
+   "fee_paid": 0.0,
+   "delta": 9.72,
+   "S_entry": 1845.11,
+   "fv_at_entry": 0.8352,
+   "capital": 22.0,
+   "placed_ts": 1784388311.6873274
+  }
+ ],
+ "last_entry": {
+  "ethereum-above-1800-on-july-20-2026": 1784388311.6873274
+ },
+ "created": "2026-07-18T15:23:59.886250+00:00"
+}

@@ -1,0 +1,17 @@
+2026-07-18T15:24:00.593206+00:00 scan: 0 live daily-ladder strikes
+2026-07-18T15:24:02.234389+00:00   BTC: smiles=ok expiries=5 S_idx=64104.555 S_bin=64107.66
+2026-07-18T15:24:03.785251+00:00   ETH: smiles=ok expiries=5 S_idx=1843.47 S_bin=1845.22
+2026-07-18T15:24:03.785449+00:00 cycle done: signals=0 entered=0 open=0 deployed=$0.00 bankroll=$100.00
+2026-07-18T15:25:08.565564+00:00 scan: 110 live daily-ladder strikes
+2026-07-18T15:25:10.166130+00:00   BTC: smiles=ok expiries=5 S_idx=64083.96 S_bin=64107.66
+2026-07-18T15:25:11.687156+00:00   ETH: smiles=ok expiries=5 S_idx=1843.475 S_bin=1845.11
+2026-07-18T15:25:36.515714+00:00 ENTER maker_pending ethereum-above-1800-on-july-20-2026 K=1800.0 entry=0.810 fv=0.835 shares=12.3 ($10.00) delta=$9.7/sh hedge=$120 notional
+2026-07-18T15:25:36.515933+00:00   sig ETH K=  1800.0 tte=2.0d pm 0.80/0.82 fv=0.835 gapT=+0.015 gapM=+0.025
+2026-07-18T15:25:36.516001+00:00   sig ETH K=  1800.0 tte=3.0d pm 0.74/0.78 fv=0.773 gapT=-0.007 gapM=+0.023
+2026-07-18T15:25:36.516046+00:00   sig ETH K=  1900.0 tte=5.0d pm 0.25/0.28 fv=0.276 gapT=-0.004 gapM=+0.016
+2026-07-18T15:25:36.516089+00:00   sig ETH K=  2000.0 tte=5.0d pm 0.03/0.07 fv=0.051 gapT=-0.019 gapM=+0.011
+2026-07-18T15:25:36.516132+00:00   sig ETH K=  1900.0 tte=4.0d pm 0.22/0.26 fv=0.240 gapT=-0.020 gapM=+0.010
+2026-07-18T15:25:36.516171+00:00   sig BTC K= 66000.0 tte=5.0d pm 0.20/0.23 fv=0.217 gapT=-0.013 gapM=+0.007
+2026-07-18T15:25:36.516209+00:00   sig BTC K= 62000.0 tte=2.0d pm 0.94/0.95 fv=0.956 gapT=+0.006 gapM=+0.006
+2026-07-18T15:25:36.516247+00:00   sig BTC K= 62000.0 tte=5.0d pm 0.80/0.82 fv=0.814 gapT=-0.006 gapM=+0.004
+2026-07-18T15:25:36.516289+00:00 cycle done: signals=35 entered=1 open=1 deployed=$22.00 bankroll=$100.00
