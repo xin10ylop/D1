@@ -133,6 +133,54 @@ def battery_maker(panels, sample="train", horizon_bars=8):
     return pd.DataFrame(rows)
 
 
+def battery_verticals(panels, sample="train"):
+    """H27: adjacent-strike verticals when PM bucket mass mispriced vs options RND.
+
+    Long-between: buy YES(K_lo) + buy NO(K_hi); cost-1 vs FV mass between.
+    Short-between: buy NO(K_lo) + buy YES(K_hi) when PM overprices the bucket.
+    Both legs taker at next-bar quotes; hold to settlement (labels give payoff).
+    """
+    rows = []
+    allp = pd.concat(panels, ignore_index=True)
+    m = allp[allp.is_test] if sample == "test" else allp[~allp.is_test]
+    m = m[(m.ask > 0.02) & (m.ask < 0.98) & (m.spread <= 0.05)]
+    trades = {"long": [], "short": []}
+    for (asset, event, ts), g in m.groupby(["asset", "event", "ts"]):
+        if len(g) < 2:
+            continue
+        g = g.sort_values("K").reset_index(drop=True)
+        for i in range(len(g) - 1):
+            lo, hi = g.iloc[i], g.iloc[i + 1]
+            if not np.isfinite(lo.n_ask) or not np.isfinite(hi.n_bid):
+                continue
+            fv_mass = lo.fv - hi.fv
+            # long-between: cost-1 = ask_lo + (1-bid_hi) - 1 = ask_lo - bid_hi
+            cost_l = lo.n_ask - hi.n_bid
+            fee_l = fee(lo.n_ask) + fee(1 - hi.n_bid)
+            edge_l = fv_mass - cost_l - fee_l
+            # short-between: buy NO(K_lo) at 1-bid_lo + YES(K_hi) at ask_hi; pays 1 - between
+            cost_s = (1 - lo.n_bid) + hi.n_ask
+            fee_s = fee(1 - lo.n_bid) + fee(hi.n_ask)
+            edge_s = (1 - fv_mass) - cost_s - fee_s
+            between = lo.label - hi.label  # 1 if K_lo < S_T <= K_hi
+            if edge_l > 0.02:
+                trades["long"].append(dict(asset=asset, event=event, slug=lo.slug, ts=ts,
+                                           ev_raw=between - cost_l - fee_l,
+                                           ev_hedged=between - cost_l - fee_l, label=between))
+            if edge_s > 0.02:
+                ev_s = (1 - between) - cost_s - fee_s
+                trades["short"].append(dict(asset=asset, event=event, slug=lo.slug, ts=ts,
+                                            ev_raw=ev_s, ev_hedged=ev_s, label=1 - between))
+    for side, tl in trades.items():
+        d = pd.DataFrame(tl)
+        if len(d) < 5:
+            continue
+        d = dedup_trades(d, cols=("slug",), cooldown_h=24)
+        st = clustered_stats(d)
+        rows.append(dict(family="vertical_between", side=side, thr=0.02, sample=sample, **st))
+    return pd.DataFrame(rows)
+
+
 def battery_weekend_hours(panels, sample="train"):
     """H4/H28: does the gap structure differ by UTC hour-of-day / weekend?"""
     allp = pd.concat(panels, ignore_index=True)
