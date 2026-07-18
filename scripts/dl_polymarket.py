@@ -70,7 +70,7 @@ async def do_market(row, sem, results):
     days_q = day_range(row.quotes_from, row.quotes_to)
     for day in days_q:
         bars_file = BARS / f"{slug}_{day}.parquet"
-        if bars_file.exists():
+        if bars_file.exists() or bars_file.with_suffix(".empty").exists():
             continue
         async with sem:
             try:
@@ -79,8 +79,8 @@ async def do_market(row, sem, results):
                                              slug=slug, outcome="Yes", from_date=day, to_date=nxt,
                                              download_dir=str(RAW))
                 if files:
-                    bars = downsample(files[0], slug, day)
-                    bars.to_parquet(bars_file, index=False)
+                    bars = await asyncio.to_thread(downsample, files[0], slug, day)
+                    await asyncio.to_thread(bars.to_parquet, bars_file, index=False)
                     import os
                     os.remove(files[0])
                 else:
