@@ -95,6 +95,7 @@ def battery_maker(panels, sample="train", horizon_bars=8):
     allp = pd.concat(panels, ignore_index=True)
     m = allp[allp.is_test] if sample == "test" else allp[~allp.is_test]
     m = m[(m.ask > 0.02) & (m.ask < 0.98)]
+    bys = {s: g.sort_values("ts").reset_index(drop=True) for s, g in allp.groupby("slug")}
     for side in ["yes", "no"]:
         for thr in [0.01, 0.02, 0.03]:
             if side == "yes":
@@ -104,7 +105,8 @@ def battery_maker(panels, sample="train", horizon_bars=8):
             sel = dedup_trades(sel, cols=("slug",), cooldown_h=24)
             trades = []
             for r in sel.itertuples():
-                g = allp[(allp.slug == r.slug) & (allp.ts > r.ts)].head(horizon_bars)
+                gs = bys.get(r.slug)
+                g = gs[gs.ts > r.ts].head(horizon_bars) if gs is not None else pd.DataFrame()
                 if len(g) == 0:
                     continue
                 if side == "yes":
