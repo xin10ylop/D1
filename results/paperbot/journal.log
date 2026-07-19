@@ -707,3 +707,7 @@
 2026-07-18T23:53:33.663969+00:00   sig BTC K= 62000.0 tte=2.7d pm 0.94/0.95 fv=0.945 gapT=-0.005 gapM=-0.005
 2026-07-18T23:53:33.663985+00:00   sig BTC K= 64000.0 tte=1.7d pm 0.76/0.77 fv=0.761 gapT=-0.009 gapM=-0.009
 2026-07-18T23:53:33.664086+00:00 cycle done: signals=8 entered=0 open=1 deployed=$44.60 bankroll=$100.00
+2026-07-19T16:26:27.797068+00:00 daemon started (singleton lock acquired)
+2026-07-19T16:26:37.659632+00:00 scan: 154 live daily-ladder strikes
+2026-07-19T16:26:41.360244+00:00   BTC: smiles=ok expiries=5 S_idx=64530.28 S_bin=64598.01
+2026-07-19T16:26:44.420697+00:00   ETH: smiles=ok expiries=5 S_idx=1870.19 S_bin=1870.15
