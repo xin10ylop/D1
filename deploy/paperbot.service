@@ -1,0 +1,22 @@
+[Unit]
+Description=Polymarket-Deribit strike paper bot (BTC/ETH daily ladders)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# --- edit these three for your box ---
+User=YOUR_USER
+WorkingDirectory=/opt/d1-paperbot/scripts
+ExecStart=/opt/d1-paperbot/venv/bin/python3 /opt/d1-paperbot/scripts/paperbot.py --daemon
+# -------------------------------------
+Restart=always
+RestartSec=30
+# journald captures stdout; the bot flushes every log line so `journalctl -f` is live
+StandardOutput=journal
+StandardError=journal
+# state (bankroll, trades.csv, journal) lives under results/paperbot
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

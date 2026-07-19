@@ -318,6 +318,14 @@ def scan_once():
         ok = sm is not None and fv_ctx[a]["S_bin"] is not None
         log(f"  {a}: smiles={'ok' if sm is not None else 'FAIL'} expiries={0 if sm is None else len(sm)} "
             f"S_idx={S_idx} S_bin={fv_ctx[a]['S_bin']}")
+        if not ok:
+            log(f"ERROR {a} market-data fetch failed this cycle "
+                f"(smiles={sm is not None}, spot={fv_ctx[a]['S_bin'] is not None}) — skipping asset")
+        elif S_idx and fv_ctx[a]["S_bin"] and abs(S_idx / fv_ctx[a]["S_bin"] - 1) > 0.02:
+            log(f"MISMATCH {a} Deribit index vs Binance spot differ >2% "
+                f"({S_idx} vs {fv_ctx[a]['S_bin']}) — basis check")
+    if all(fv_ctx[a]["smiles"] is None or fv_ctx[a]["S_bin"] is None for a in ASSETS):
+        log("HALT no usable market data for any asset this cycle — no entries made")
 
     books = {}
     signals = []
