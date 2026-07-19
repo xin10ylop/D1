@@ -7,3 +7,9 @@ data/
 .ipynb_checkpoints/
 scratch/
 logs/
+
+# paper bot runtime state (regenerated on each host)
+results/paperbot/state.json
+results/paperbot/trades.csv
+results/paperbot/journal.log
+results/paperbot/.bot.lock
