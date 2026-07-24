@@ -33,3 +33,16 @@ Updated: 2026-07-17 ~20:30 UTC
 2. Butterflies/density + calendar + maker families on train → test.
 3. Books for OOS signal days → depth-adjusted OOS EV at $500/1000/2000 → capacity.
 4. Bankroll/compounding path; final report (task 7): ranked strategies incl. everything rejected.
+
+## Improvement sprint (2026-07-24, ultracode)
+- Workflow wf_9183c5a1-296: 7 research agents (fv-upgrade, signal-conditioning, execution-lab,
+  hedge-lab, mechanism-extend, code-audit, new-families) + adversarial verification of adopt-claims.
+  Shared brief: docs/improve_brief.md. Outputs: results/improve/<agent>/.
+- Inline fixes already shipped (commit + pushed): paperbot phantom-resolution of unfilled pending
+  orders (CRITICAL), pending-fill book fetch gap (MAJOR), tape-based fill detection via CLOB
+  prices-history incl. retro pre-expiry check. Droplet needs `git pull && systemctl restart d1-paperbot`
+  + phantom-ledger check (MONITORING.md).
+- Edge-decay check (inline): median |gap| 2.25c (Oct25) -> ~1.5c stable since Feb26; maker signal flow
+  130-230/wk no downtrend; spreads 3.0c -> 1.4c. Edge matured, not dying.
+- After workflow: synthesize verified improvements -> upgrade final_eval + paperbot -> one OOS
+  re-validation -> update REPORT.md -> push.

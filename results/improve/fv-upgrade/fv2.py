@@ -210,6 +210,84 @@ def recompute_fv(m, voltime=None, rv=None, w_iv=None, tdf=None):
     return fv, sig
 
 
+def core(m, voltime=None):
+    """Compute (sig, slope, tau, x, hasA) once so blend/tail grids are cheap."""
+    fv, sig = None, None  # noqa
+    ts = m["ts"].values.astype(float)
+    T = m["T_pm"].values.astype(float)
+    x = m["x"].values
+    tau = (T - ts) / YR
+    hasA = m["expA"].notna().values
+    hasB = m["expB"].notna().values
+    n = len(m)
+    w = np.full(n, np.nan)
+    w2 = np.full(n, np.nan)
+
+    def V(t):
+        return np.interp(t, voltime[0], voltime[1])
+
+    msk = hasA & hasB
+    if msk.any():
+        expA = m["expA"].values[msk].astype(float)
+        expB = m["expB"].values[msk].astype(float)
+        tA = (expA - ts[msk]) / YR
+        tB = (expB - ts[msk]) / YR
+        xg = x[msk]
+        sA = _sig(m["aA"].values[msk], m["bA"].values[msk], m["cA"].values[msk],
+                  m["xloA"].values[msk], m["xhiA"].values[msk], xg)
+        sB = _sig(m["aB"].values[msk], m["bB"].values[msk], m["cB"].values[msk],
+                  m["xloB"].values[msk], m["xhiB"].values[msk], xg)
+        sA2 = _sig(m["aA"].values[msk], m["bA"].values[msk], m["cA"].values[msk],
+                   m["xloA"].values[msk], m["xhiA"].values[msk], xg + 0.01)
+        sB2 = _sig(m["aB"].values[msk], m["bB"].values[msk], m["cB"].values[msk],
+                   m["xloB"].values[msk], m["xhiB"].values[msk], xg + 0.01)
+        wA, wB = sA * sA * tA, sB * sB * tB
+        wA2, wB2 = sA2 * sA2 * tA, sB2 * sB2 * tB
+        if voltime is None:
+            frac = (tau[msk] - tB) / np.maximum(tA - tB, 1e-9)
+        else:
+            frac = (V(T[msk]) - V(expB)) / np.maximum(V(expA) - V(expB), 1e-9)
+        w[msk] = wB + (wA - wB) * frac
+        w2[msk] = wB2 + (wA2 - wB2) * frac
+
+    msk = hasA & ~hasB
+    if msk.any():
+        expA = m["expA"].values[msk].astype(float)
+        tA = (expA - ts[msk]) / YR
+        xg = x[msk]
+        sA = _sig(m["aA"].values[msk], m["bA"].values[msk], m["cA"].values[msk],
+                  m["xloA"].values[msk], m["xhiA"].values[msk], xg)
+        sA2 = _sig(m["aA"].values[msk], m["bA"].values[msk], m["cA"].values[msk],
+                   m["xloA"].values[msk], m["xhiA"].values[msk], xg + 0.01)
+        if voltime is None:
+            ratio = tau[msk] / tA
+        else:
+            ratio = (V(T[msk]) - V(ts[msk])) / np.maximum(V(expA) - V(ts[msk]), 1e-12)
+        w[msk] = sA * sA * tA * ratio
+        w2[msk] = sA2 * sA2 * tA * ratio
+
+    sig = np.sqrt(np.maximum(w, 1e-10) / np.maximum(tau, 1e-12))
+    sig2 = np.sqrt(np.maximum(w2, 1e-10) / np.maximum(tau, 1e-12))
+    slope = (sig2 - sig) / 0.01
+    return dict(sig=sig, slope=slope, tau=tau, x=x, hasA=hasA, ts=ts)
+
+
+def digital(co, sig_override=None, slope_override=None, tdf=None):
+    sig = co["sig"] if sig_override is None else sig_override
+    slope = co["slope"] if slope_override is None else slope_override
+    tau, x = co["tau"], co["x"]
+    v = sig * np.sqrt(tau)
+    d2 = -x / v - v / 2
+    if tdf is None:
+        dig = norm.cdf(d2) - norm.pdf(d2) * np.sqrt(tau) * slope
+    else:
+        c = math.sqrt(tdf / (tdf - 2.0))
+        dig = tdist.cdf(d2 * c, tdf) - tdist.pdf(d2 * c, tdf) * c * np.sqrt(tau) * slope
+    fv = np.clip(dig, 0.0, 1.0)
+    fv[~co["hasA"]] = np.nan
+    return fv
+
+
 # ---------------------------------------------------------------- metrics
 def tte_band(tte):
     return pd.cut(tte, [0, 0.333, 1, 3, 8, 100],
