@@ -145,7 +145,35 @@ def binance_close_at(sym, t_open_utc):
     return None
 
 
-def fv_digital(smiles, S_idx, S_bin, carry, K, T_pm):
+_VOLPROF = None
+
+
+def vol_profile(asset):
+    """168-vector hour-of-week variance multipliers (train-estimated).
+    Falls back to flat (== clock time) if the CSV is absent."""
+    global _VOLPROF
+    if _VOLPROF is None:
+        f = pathlib.Path(__file__).resolve().parent / "vol_profile_hourweek.csv"
+        try:
+            df = pd.read_csv(f)
+            _VOLPROF = {a: df[a].values.astype(float) for a in df.columns if a != "hour_of_week"}
+        except Exception:
+            _VOLPROF = {}
+    return _VOLPROF.get(asset, np.ones(168))
+
+
+def cumvar_fn(asset, t0, t1):
+    """Cumulative seasonal variance-time V(t) on a 10-min grid over [t0, t1]."""
+    prof = vol_profile(asset)
+    grid = np.arange(t0 - 600, t1 + 3600, 600.0)
+    # hour-of-week index 0 = Monday 00:00 UTC (unix epoch was Thursday -> +72h)
+    how = (((grid / 3600.0) + 72) % 168).astype(int)
+    dV = prof[how] * (600.0 / (365 * 86400))
+    V = np.cumsum(dV)
+    return lambda t: float(np.interp(t, grid, V))
+
+
+def fv_digital(smiles, S_idx, S_bin, carry, K, T_pm, asset="BTC"):
     now = time.time()
     tau = (T_pm - now) / (365 * 86400)
     if tau <= 0 or smiles is None or S_idx is None or S_bin is None:
@@ -165,14 +193,20 @@ def fv_digital(smiles, S_idx, S_bin, carry, K, T_pm):
     if len(earlier) and len(later):
         rB, rA = earlier.iloc[-1], later.iloc[0]
         tB, tA = (rB.exp_ts - now) / (365 * 86400), (rA.exp_ts - now) / (365 * 86400)
-        frac = (tau - tB) / max(tA - tB, 1e-9)
+        V = cumvar_fn(asset, now, float(rA.exp_ts))
+        frac = (V(T_pm) - V(rB.exp_ts)) / max(V(rA.exp_ts) - V(rB.exp_ts), 1e-12)
+        frac = min(max(frac, 0.0), 1.0)
         w = sig_at(rB, x) ** 2 * tB + (sig_at(rA, x) ** 2 * tA - sig_at(rB, x) ** 2 * tB) * frac
         w2 = sig_at(rB, x + .01) ** 2 * tB + (sig_at(rA, x + .01) ** 2 * tA - sig_at(rB, x + .01) ** 2 * tB) * frac
         extrap = 0
     elif len(later):
         rA = later.iloc[0]
-        w = sig_at(rA, x) ** 2 * tau
-        w2 = sig_at(rA, x + .01) ** 2 * tau
+        tA = (rA.exp_ts - now) / (365 * 86400)
+        V = cumvar_fn(asset, now, float(rA.exp_ts))
+        ratio = (V(T_pm) - V(now)) / max(V(rA.exp_ts) - V(now), 1e-12)
+        ratio = min(max(ratio, 0.0), 1.0)
+        w = sig_at(rA, x) ** 2 * tA * ratio
+        w2 = sig_at(rA, x + .01) ** 2 * tA * ratio
         extrap = 1
     else:
         return None
@@ -372,7 +406,8 @@ def scan_once():
         tte_d = (mk["T_pm"] - now) / 86400
         if tte_d <= 0 or tte_d >= 8:
             continue
-        f = fv_digital(ctx["smiles"], ctx["S_idx"], ctx["S_bin"], ctx["carry"], mk["K"], mk["T_pm"])
+        f = fv_digital(ctx["smiles"], ctx["S_idx"], ctx["S_bin"], ctx["carry"], mk["K"], mk["T_pm"],
+                       asset=mk["asset"])
         if f is None:
             continue
         b = clob_book(mk["yes_token"])
