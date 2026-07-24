@@ -50,6 +50,28 @@ taker `[+1.0c, +10.0c]` center +5.4c · maker `[+2.0c, +7.0c]` center +4.3c · w
 - `HALT`  — no usable market data for any asset this cycle (no entries made)
 - `MISMATCH` — Deribit index vs Binance spot diverged >2% (basis/oracle sanity)
 
+### Updating the bot code (when fixes/improvements land on the branch)
+```
+cd /opt/d1-paperbot
+git pull
+sudo systemctl restart d1-paperbot
+journalctl -u d1-paperbot -f     # watch one cycle come through clean
+```
+State (bankroll/positions/trades) is preserved across restarts — only code changes.
+
+**2026-07-24 fix note**: versions before this date had a bug where an UNFILLED resting
+maker order that survived to expiry was resolved as if it had filled (phantom P&L).
+Check whether your ledger was affected:
+```
+grep "ENTER maker_pending" results/paperbot/journal.log | awk '{print $3}' | sort >/tmp/placed
+grep "MAKER FILLED" results/paperbot/journal.log | awk '{print $3}' | sort >/tmp/filled
+grep "RESOLVED" results/paperbot/journal.log | awk '{print $2}' | sort >/tmp/resolved
+comm -23 /tmp/placed /tmp/filled | while read s; do grep -q "^$s$" /tmp/resolved && echo "PHANTOM: $s"; done
+```
+Any `PHANTOM:` lines = those rows in trades.csv were never real fills; if present, the
+cleanest reset is to archive state and restart flat:
+`mv results/paperbot results/paperbot.bak-$(date +%F) && sudo systemctl restart d1-paperbot`
+
 ### First-time install (once)
 ```
 sudo mkdir -p /opt/d1-paperbot && sudo chown $USER /opt/d1-paperbot
