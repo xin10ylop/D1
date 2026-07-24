@@ -18,16 +18,26 @@ def universe_old():
     m = df[is_strike & (asset != "")].copy()
     m["asset"] = asset[is_strike & (asset != "")]
     es = m["event_slug"].fillna("")
-    daily = ~es.str.contains("multistrike") & ~es.str.match(r".*-\d{1,2}(am|pm)-et$")
+    daily = (~es.str.contains("multistrike") & ~es.str.match(r".*-\d{1,2}(am|pm)-et$")
+             & ~m["slug"].fillna("").str.contains("multistrike"))
     m = m[daily].copy()
 
     def strike(qq):
-        mm = re.search(r"\$([\d,]+(?:\.\d+)?)", qq)
-        return float(mm.group(1).replace(",", "")) if mm else np.nan
+        mm = re.search(r"\$([\d,]+(?:\.\d+)?)\s*([kK])?", qq)
+        if not mm:
+            return np.nan
+        v = float(mm.group(1).replace(",", ""))
+        return v * 1000 if mm.group(2) else v
 
     m["strike"] = m["question"].map(strike)
     m["end_dt"] = pd.to_datetime(pd.to_numeric(m["end_date_us"], errors="coerce"),
                                  unit="us", utc=True)
+    # true resolution instant: 1m candle labeled 12:00 noon ET on the market date
+    # (old-era rows carry end_date_us=12:00 UTC which is NOT the resolution time)
+    res = (m["end_dt"].dt.tz_convert("America/New_York").dt.normalize()
+           + pd.Timedelta(hours=12)).dt.tz_convert("UTC")
+    m["res_dt"] = res
+    m["end_dt"] = res
     m = m[(m["status"] == "resolved") & m["strike"].notna()]
     m = m[m["onchain_fills_from"].fillna("") != ""]
     # sane end date (drop epoch-zero rows), before panel era start

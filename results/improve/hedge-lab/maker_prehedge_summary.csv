@@ -1,0 +1,5 @@
+leg,n,n_events,ev,t
+filled_prehedged,3765,743,0.01113,1.6
+unfilled_naked_short,3263,769,-0.04481,-21.34
+all_quotes_per_quote,7028,820,-0.0162,-4.33
+all_in_per_FILLED_share,3765,820,-0.01874,
