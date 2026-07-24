@@ -298,16 +298,19 @@ def resolve_positions(st):
         if now < p["T_pm"] + 120:  # candle close + buffer
             still.append(p)
             continue
-        if p["mode"] == "maker_pending":
+        if p["mode"] in ("maker_pending", "am_pending"):
             # last chance: did it actually trade through our limit before expiry
             # (covers fills that happened while the bot was down)?
+            life = 1800 if p["mode"] == "am_pending" else 4 * 3600
             low = traded_low_since(p["yes_token"], p.get("last_fill_check", p["placed_ts"]),
-                                   end_ts=min(p["placed_ts"] + 4 * 3600, p["T_pm"]))
+                                   end_ts=min(p["placed_ts"] + life, p["T_pm"]))
             if low is not None and low <= p["entry"] + 1e-9:
-                p["mode"] = "maker"
-                log(f"MAKER FILLED (retro, pre-expiry) {p['slug']} @ {p['entry']}")
+                p["mode"] = "maker" if p["mode"] == "maker_pending" else "taker"
+                log(f"PENDING FILLED (retro, pre-expiry) {p['slug']} @ {p['entry']}")
             else:
-                log(f"MAKER CANCELLED AT EXPIRY (unfilled) {p['slug']}")
+                # am_pending would have taker-fallen-back at an unknowable past ask:
+                # conservative = cancel, never fabricate a fallback fill
+                log(f"PENDING CANCELLED AT EXPIRY (unfilled) {p['slug']}")
                 continue
         sym = ASSETS[p["asset"]]
         S_T = binance_close_at(sym, p["T_pm"] - 60)  # candle labeled 12:00 ET opens at T_pm-60
@@ -343,18 +346,14 @@ def traded_low_since(token_id, since_ts, end_ts=None):
 
 
 def check_maker_fills(st, books):
-    """Maker orders fill when (a) the live best ask is at/below our limit, or
-    (b) the token actually TRADED at/below our limit since placement (matches
-    the backtest's tape-print fill rule; catches intra-cycle dips).
+    """Pending-order state machine.
 
-    Fix: fetch the book for EVERY pending order's market, not only markets
-    that happen to signal this cycle."""
+    maker_pending (S2, bid+1c): fill if best ask <= limit OR the token traded
+    at/below the limit since placement (tape truth); expire unfilled at 4h.
+    am_pending (S1 aggressive maker, ask-1c): same fill rule; if unfilled at
+    30m, FALL BACK TO TAKER at the live ask (adopted execution policy)."""
     for p in st["positions"]:
-        if p["mode"] != "maker_pending":
-            continue
-        if time.time() > p["placed_ts"] + 4 * 3600:
-            p["mode"] = "maker_expired"
-            log(f"MAKER EXPIRED {p['slug']}")
+        if p["mode"] not in ("maker_pending", "am_pending"):
             continue
         b = books.get(p["yes_token"])
         if b is None:
@@ -365,13 +364,37 @@ def check_maker_fills(st, books):
             filled = low is not None and low <= p["entry"] + 1e-9
         p["last_fill_check"] = time.time()
         if filled:
-            p["mode"] = "maker"
-            log(f"MAKER FILLED {p['slug']} @ {p['entry']}")
+            if p["mode"] == "maker_pending":
+                p["mode"], p["exec"] = "maker", "maker_fill"
+                log(f"MAKER FILLED {p['slug']} @ {p['entry']}")
+            else:
+                p["mode"], p["exec"] = "taker", "am_fill"  # S1 book, maker-priced fill, no fee
+                log(f"AM FILLED {p['slug']} @ {p['entry']}")
+            continue
+        if p["mode"] == "am_pending" and time.time() > p["placed_ts"] + 1800:
+            # taker fallback: cross at live ask, pay the fee
+            if b and b.get("ask"):
+                old = p["entry"]
+                p["entry"] = float(b["ask"])
+                p["shares"] = round(min(p["shares"] * old / max(p["entry"], 0.02), p["shares"]), 2)
+                p["fee_paid"] = round(FEE_RATE * p["entry"] * (1 - p["entry"]) * p["shares"], 4)
+                p["capital"] = round(p["shares"] * (p["entry"] + p["delta"] / 10), 2)
+                p["mode"] = "taker"
+                p["exec"] = "taker_fallback"
+                log(f"AM FALLBACK->TAKER {p['slug']} @ {p['entry']:.3f} (limit was {old:.3f})")
+            else:
+                p["mode"] = "maker_expired"  # no book: drop rather than guess
+                log(f"AM EXPIRED (no book for fallback) {p['slug']}")
+            continue
+        if p["mode"] == "maker_pending" and time.time() > p["placed_ts"] + 4 * 3600:
+            p["mode"] = "maker_expired"
+            log(f"MAKER EXPIRED {p['slug']}")
     st["positions"] = [p for p in st["positions"] if p["mode"] != "maker_expired"]
 
 
 def deployed_capital(st):
-    return sum(p["capital"] for p in st["positions"] if p["mode"] in ("taker", "maker", "maker_pending"))
+    return sum(p["capital"] for p in st["positions"]
+               if p["mode"] in ("taker", "maker", "maker_pending", "am_pending"))
 
 
 def scan_once():
@@ -429,31 +452,20 @@ def scan_once():
             continue
         mode = None
         if s["gap_taker"] > THR["taker"] and TTE_TAKER[0] <= s["tte_d"] < TTE_TAKER[1]:
-            mode = "taker"
+            # adopted execution upgrade: aggressive maker at ask-1c, taker fallback @30m
+            mode = "am_pending"
         elif s["gap_maker"] > THR["maker"]:
             mode = "maker_pending"
         if mode is None:
             continue
         avail = MAX_DEPLOY * st["bankroll"] - deployed_capital(st)
-        entry = s["ask"] if mode == "taker" else round(s["bid"] + 0.01, 3)
+        entry = round(s["ask"] - 0.01, 3) if mode == "am_pending" else round(s["bid"] + 0.01, 3)
         cap_share = entry + s["delta"] / 10
-        clip = min(CLIP["taker" if mode == "taker" else "maker"], F_POS * st["bankroll"])
+        clip = min(CLIP["taker" if mode == "am_pending" else "maker"], F_POS * st["bankroll"])
         shares = min(clip / max(entry, 0.02), max(avail, 0) / max(cap_share, 0.02))
-        if mode == "taker":
-            # walk visible asks for exact VWAP at our size (usually touch at $10 clips)
-            rem, cost, got = shares, 0.0, 0.0
-            for px, szx in s["asks"]:
-                take = min(szx, rem)
-                cost += take * px; got += take; rem -= take
-                if rem <= 0:
-                    break
-            if got < shares * 0.5:
-                continue
-            shares = got
-            entry = cost / got
         if shares * entry < MIN_POS:
             continue
-        fee_paid = (FEE_RATE * entry * (1 - entry) * shares) if mode == "taker" else 0.0
+        fee_paid = 0.0  # maker placement; fee charged only if the 30m taker fallback fires
         pos = dict(asset=s["asset"], slug=s["slug"], K=s["K"], T_pm=s["T_pm"],
                    yes_token=s["yes_token"], mode=mode, entry=round(entry, 4),
                    shares=round(shares, 2), fee_paid=round(fee_paid, 4),
