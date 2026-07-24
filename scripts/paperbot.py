@@ -264,6 +264,17 @@ def resolve_positions(st):
         if now < p["T_pm"] + 120:  # candle close + buffer
             still.append(p)
             continue
+        if p["mode"] == "maker_pending":
+            # last chance: did it actually trade through our limit before expiry
+            # (covers fills that happened while the bot was down)?
+            low = traded_low_since(p["yes_token"], p.get("last_fill_check", p["placed_ts"]),
+                                   end_ts=min(p["placed_ts"] + 4 * 3600, p["T_pm"]))
+            if low is not None and low <= p["entry"] + 1e-9:
+                p["mode"] = "maker"
+                log(f"MAKER FILLED (retro, pre-expiry) {p['slug']} @ {p['entry']}")
+            else:
+                log(f"MAKER CANCELLED AT EXPIRY (unfilled) {p['slug']}")
+                continue
         sym = ASSETS[p["asset"]]
         S_T = binance_close_at(sym, p["T_pm"] - 60)  # candle labeled 12:00 ET opens at T_pm-60
         if S_T is None:
@@ -283,19 +294,43 @@ def resolve_positions(st):
     st["positions"] = still
 
 
+def traded_low_since(token_id, since_ts, end_ts=None):
+    """Lowest traded price for the token in [since_ts, end_ts] (CLOB price
+    history, 1-min fidelity). None if unavailable."""
+    e = int(end_ts if end_ts else time.time())
+    r = http_json(f"https://clob.polymarket.com/prices-history?market={token_id}"
+                  f"&startTs={int(since_ts)}&endTs={e}&fidelity=1")
+    if not r or not r.get("history"):
+        return None
+    try:
+        return min(float(x["p"]) for x in r["history"])
+    except Exception:
+        return None
+
+
 def check_maker_fills(st, books):
-    """Maker orders fill when the live best ask crosses down to our limit
-    (same conservative rule as the backtest bar detector)."""
+    """Maker orders fill when (a) the live best ask is at/below our limit, or
+    (b) the token actually TRADED at/below our limit since placement (matches
+    the backtest's tape-print fill rule; catches intra-cycle dips).
+
+    Fix: fetch the book for EVERY pending order's market, not only markets
+    that happen to signal this cycle."""
     for p in st["positions"]:
         if p["mode"] != "maker_pending":
             continue
         if time.time() > p["placed_ts"] + 4 * 3600:
             p["mode"] = "maker_expired"
-            st["bankroll"] += 0  # nothing committed
             log(f"MAKER EXPIRED {p['slug']}")
             continue
         b = books.get(p["yes_token"])
-        if b and b["ask"] <= p["entry"] + 1e-9:
+        if b is None:
+            b = clob_book(p["yes_token"])  # pending markets always get a book check
+        filled = bool(b and b["ask"] <= p["entry"] + 1e-9)
+        if not filled:
+            low = traded_low_since(p["yes_token"], p.get("last_fill_check", p["placed_ts"]))
+            filled = low is not None and low <= p["entry"] + 1e-9
+        p["last_fill_check"] = time.time()
+        if filled:
             p["mode"] = "maker"
             log(f"MAKER FILLED {p['slug']} @ {p['entry']}")
     st["positions"] = [p for p in st["positions"] if p["mode"] != "maker_expired"]
