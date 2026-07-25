@@ -197,3 +197,12 @@ Crossed-quote exclusion + corrected filters; train-tune/OOS-freeze discipline id
 
 (Conservative bar-fill model; tape-verified fills and the funding credit sit on top of the
 maker number as upside. results/final_strategies.csv is the artifact.)
+
+## Verification addendum (2026-07-25, results/improve/verify-remaining)
+- The old-era (2024-25) mechanism validation was PARTIALLY REFUTED at magnitude: its +7.6c/sh
+  headline was ~80% a hedge-timing accounting credit (signals select on pre-entry spot drops).
+  Corrected old-era edge: **+1-2c/sh, t<2** — consistent with, not stronger than, the incumbent
+  maker result. Labels, universe, no-lookahead, and the pooled PM->FV convergence direction all
+  independently confirmed; the causal asymmetry is a 2025-era phenomenon (2024 is symmetric).
+- The funding credit (+0.05-0.11c/sh to the short-perp hedge) was CONFIRMED exactly against an
+  independent API re-fetch; its t-stats corrected for overlapping windows (honest t 1.2-3.2).

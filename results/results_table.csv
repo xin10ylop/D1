@@ -15,3 +15,5 @@ AUDIT-M2,linear_vs_log_hedge,clean_S1,173,,-0.009,Real short perp is linear in S
 SPRINT,mechanism_extend_2024_2025,1034_old_markets,431,,0.076,"Signal fv-vwap>5c: +7.6c/sh hedged on old labels t=4.8, 6/7 quarters positive; PM->FV convergence beta 0.345@24h; mechanism confirmed out-of-era. NOT fill-realistic."
 SPRINT,funding_credit,oos,1141,,0.0009,"Short perp hedge EARNS funding +0.08-0.11c/sh, t up to 7.9. Adopt in accounting."
 FINAL,corrected_final_eval,post_audit_canonical,796,0.418,0.0267,"maker_yes: train +1.73c t=2.41 -> OOS +2.67c t=1.85 (conservative fills, crossed-quotes excluded). taker_yes train-best FAILED OOS (-1.1c t=-0.29). taker_no/maker_no fail train gates."
+VERIFY,mechanism_extend_corrected,old_era_2024_25,431,,0.017,"PARTIAL REFUTE: +7.6c headline was ~80pct hedge-timing credit on pre-entry drops. Corrected +1.7c t=1.8 (5c thr); quarters 3/8. Mechanism (bucket mispricing, pooled convergence) confirmed; magnitude tempered."
+VERIFY,funding_credit_confirmed,all_trades,1141,,0.0009,CONFIRMED exactly vs independent re-fetch; t corrected 7.9 -> 1.2-3.2 (overlap clustering).
