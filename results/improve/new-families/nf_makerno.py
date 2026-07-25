@@ -18,7 +18,10 @@ from nf_common import (load_all, Tape, FastTape, Spot1m, dedup, clustered, OUT)
 
 sample = sys.argv[1] if len(sys.argv) > 1 else "train"
 H_FILL = 4 * 3600
-FROZEN = dict(thr=0.02, tte_lo=0, tte_hi=8)  # set after train tuning
+# Frozen after train tuning: thr=0.03, tte 1-3 is the best train config
+# (+3.32c ev_ev, t=4.11, n=1352, 507 events) and the only strong band that is
+# also non-negative under the fill-time hedge (+0.06c). tte 3-8 dead (fill -2.3c).
+FROZEN = dict(thr=0.03, tte_lo=1, tte_hi=3)
 
 
 def signals(m, thr, tte_lo, tte_hi):

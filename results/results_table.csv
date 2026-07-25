@@ -17,3 +17,8 @@ SPRINT,funding_credit,oos,1141,,0.0009,"Short perp hedge EARNS funding +0.08-0.1
 FINAL,corrected_final_eval,post_audit_canonical,796,0.418,0.0267,"maker_yes: train +1.73c t=2.41 -> OOS +2.67c t=1.85 (conservative fills, crossed-quotes excluded). taker_yes train-best FAILED OOS (-1.1c t=-0.29). taker_no/maker_no fail train gates."
 VERIFY,mechanism_extend_corrected,old_era_2024_25,431,,0.017,"PARTIAL REFUTE: +7.6c headline was ~80pct hedge-timing credit on pre-entry drops. Corrected +1.7c t=1.8 (5c thr); quarters 3/8. Mechanism (bucket mispricing, pooled convergence) confirmed; magnitude tempered."
 VERIFY,funding_credit_confirmed,all_trades,1141,,0.0009,CONFIRMED exactly vs independent re-fetch; t corrected 7.9 -> 1.2-3.2 (overlap clustering).
+NEWFAM,nf_maker_verticals,sprint_2026_07_25,9098,,-0.008,Legging risk: 40-46pct lone-leg strandings bleed edge; both-fill subset is ex-post selection. REJECT train.
+NEWFAM,nf_settlement_NO,sprint_2026_07_25,28,,-0.0087,"Train +1.85c t=2.24; OOS one 97c tail loss in 28 erased months of clips. 35:1 lottery-short, tail inestimable. REJECT."
+NEWFAM,nf_spike_fade,sprint_2026_07_25,78,,0.0265,PM under-reacts (lag family); signal-time +2.65c t=0.81 OOS but bookable fill-time -2.6c. REJECT.
+NEWFAM,nf_yes_basket,sprint_2026_07_25,0,,,Only 1.2-1.5 cheap strikes/event — no diversification to harvest; best-1 dominates. REJECT train.
+NEWFAM,nf_maker_NO_corrected,sprint_2026_07_25,286,,0.006,"Corrected sign, 1-3d tte: train +3.32c t=4.11 but OOS +0.60c t=0.30, fill-time -2.8c, funding is a cost on NO side. REJECT; watchlist."

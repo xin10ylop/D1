@@ -206,3 +206,13 @@ maker number as upside. results/final_strategies.csv is the artifact.)
   independently confirmed; the causal asymmetry is a 2025-era phenomenon (2024 is symmetric).
 - The funding credit (+0.05-0.11c/sh to the short-perp hedge) was CONFIRMED exactly against an
   independent API re-fetch; its t-stats corrected for overlapping windows (honest t 1.2-3.2).
+
+## New-families addendum (2026-07-25, results/improve/new-families)
+Six additional families tested under fully corrected evaluation (phantom-clean quotes, linear
+hedge, tape fills, one frozen OOS look each): maker-legged verticals (legging risk, reject on
+train), settlement-zone YES (reject on train) and its NO mirror (train +1.85c t=2.2 but the
+one OOS tail loss erased it), spike-fade (PM under-reacts, not overshoots; bookable version
+negative OOS), event YES-baskets (no within-event diversification exists to harvest), and the
+sign-corrected maker-NO (train t=4.1 at 1-3d tte but +0.6c t=0.3 OOS with fill-time negative).
+**All rejected. S2 maker-YES remains the only strategy with out-of-sample support.**
+Watch-list for when the OOS window doubles: maker-NO 1-3d, settlement-NO.
