@@ -184,3 +184,16 @@ A 7-angle adversarial re-audit (results/improve/) materially revised this report
 - Expected returns at small size are correspondingly lower than the pre-audit projection:
   plan around the maker book's conservative band (+1-2c/sh on ~50c entries, ~90-130 fills/wk
   across BTC/ETH) until the paper record says otherwise.
+
+## Canonical corrected scoreboard (final_eval re-run on audited code, 2026-07-25)
+Crossed-quote exclusion + corrected filters; train-tune/OOS-freeze discipline identical:
+
+| family | frozen train config | train ev_ev (t) | OOS ev_ev (t) | verdict |
+|---|---|---|---|---|
+| taker-YES | 5c gap, tte 1-3d | +7.26c (2.93), n=192 | **-1.12c (-0.29)**, n=113 | FAILED OOS — demoted |
+| maker-YES | 2.5c gap at bid+1c, tte 0-8d | +1.73c (2.41), n=3,403 | **+2.67c (1.85)**, n=796, 208 events | SURVIVES (primary) |
+| taker-NO | — | best t=0.54, fails gate | not evaluated | dead |
+| maker-NO | — | best t=1.73, fails gate | not evaluated | watchlist |
+
+(Conservative bar-fill model; tape-verified fills and the funding credit sit on top of the
+maker number as upside. results/final_strategies.csv is the artifact.)
