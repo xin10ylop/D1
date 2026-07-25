@@ -27,6 +27,11 @@ def prep(asset):
     ok = (p["n_ts"] - p["ts"]) <= 1800
     for c in ["n_bid", "n_ask", "n_bid_sz", "n_ask_sz", "n_mid"]:
         p.loc[~ok, c] = np.nan
+    # AUDIT FIX: a crossed next-bar book (n_bid > n_ask) is a phantom quote produced by
+    # one-sided ffill in the bar builder; never allow entry on it.
+    crossed_next = p["n_bid"] > p["n_ask"]
+    for c in ["n_bid", "n_ask", "n_bid_sz", "n_ask_sz", "n_mid"]:
+        p.loc[crossed_next, c] = np.nan
     p["exp_dt"] = pd.to_datetime(p["T_pm"], unit="s", utc=True)
     p["is_test"] = p["exp_dt"] >= SPLIT
     p["event"] = p["exp_dt"].dt.date
@@ -70,7 +75,8 @@ def battery_thresholds(panels, sample="train"):
     rows = []
     allp = pd.concat(panels, ignore_index=True)
     m = allp[allp.is_test] if sample == "test" else allp[~allp.is_test]
-    m = m[(m.ask > 0.02) & (m.ask < 0.98) & (m.spread <= 0.05)]
+    # AUDIT FIX: spread <= 0.05 admitted crossed books (negative spread) — phantom edges
+    m = m[(m.ask > 0.02) & (m.ask < 0.98) & (m.spread >= 0.0) & (m.spread <= 0.05)]
     for side, gapc, entryc in [("yes", "gap_yes", "n_ask"), ("no", "gap_no", "n_bid")]:
         for thr in [0.01, 0.02, 0.03, 0.05]:
             for tte_lo, tte_hi in [(0, 8), (0, 1), (1, 3), (3, 8)]:
@@ -94,14 +100,15 @@ def battery_maker(panels, sample="train", horizon_bars=8):
     rows = []
     allp = pd.concat(panels, ignore_index=True)
     m = allp[allp.is_test] if sample == "test" else allp[~allp.is_test]
-    m = m[(m.ask > 0.02) & (m.ask < 0.98)]
+    m = m[(m.ask > 0.02) & (m.ask < 0.98) & (m.spread >= 0.0)]  # AUDIT FIX: no crossed books
     bys = {s: g.sort_values("ts").reset_index(drop=True) for s, g in allp.groupby("slug")}
     for side in ["yes", "no"]:
         for thr in [0.01, 0.02, 0.03]:
             if side == "yes":
                 sel = m[m.fv - (m.bid + 0.01) - 0.0 > thr]  # edge at our limit price
             else:
-                sel = m[(1 - m.ask + 0.01) - (1 - m.fv) > thr]
+                # AUDIT FIX: edge = NO fair value minus our NO bid (sign was inverted)
+                sel = m[(1 - m.fv) - (1 - m.ask + 0.01) > thr]
             sel = dedup_trades(sel, cols=("slug",), cooldown_h=24)
             trades = []
             for r in sel.itertuples():
@@ -111,7 +118,9 @@ def battery_maker(panels, sample="train", horizon_bars=8):
                     continue
                 if side == "yes":
                     lim = r.bid + 0.01
-                    fill = g[g.ask <= lim]
+                    if lim >= r.ask:  # AUDIT FIX: would cross the book -> taker, not maker
+                        continue
+                    fill = g[(g.ask <= lim) & (g.bid <= g.ask)]
                     if len(fill) == 0:
                         continue
                     f0 = fill.iloc[0]

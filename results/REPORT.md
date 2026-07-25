@@ -134,3 +134,53 @@ margin, 80% max deployment, 4-day capital cycles): $5k → median $6.8k over the
 `docs/market_structure.md` (audit) → `scripts/dl_*.py` (data) → `scripts/fv.py` +
 `build_panel2.py` (fair values) → `scripts/final_eval.py` (train-tune → OOS) →
 `results/results_table.csv` (every test, including failures) → this report.
+
+---
+
+# REVISION 2026-07-24 — Improvement-sprint re-audit (supersedes headline numbers above)
+
+A 7-angle adversarial re-audit (results/improve/) materially revised this report:
+
+## What got WEAKER
+1. **S1 taker-YES is demoted to "unproven".** The bar builder took last-bid and last-ask
+   independently over one-sided quote updates, creating phantom crossed books (fresh bid,
+   stale tiny ask) that pass a `spread<=0.05` filter and concentrate exactly where fv-ask
+   gaps are biggest: 67% of S1 train signals and 11/173 OOS trades were phantoms. Excluding
+   them: train +6.76c (t=2.47), OOS +2.40c (t=0.66). Additionally the hedge P&L was computed
+   as delta x log-return; a real short perp is linear in S, which removes another ~0.8-1.1c:
+   **clean S1 OOS ~ +0.65c/sh, statistically zero.** (results/improve/code-audit)
+2. **S2 maker hedge-timing risk.** Maker fills occur on ~-84bp down-moves; hedging at fill
+   (the live reality) instead of at signal costs ~5c/sh vs the backtest convention under the
+   conservative bar-fill model. The tape-verified +4.26c stands as an upper bound (real
+   prints, unaffected), the conservative corrected bound is +1.7-1.8c (t~2.5 train), and
+   fill-time-hedged conservative is negative. Live S2 expectation: **+1 to +4c/sh, watch the
+   paper bands.** (results/improve/hedge-lab)
+
+## What got STRONGER
+3. **The mechanism is confirmed on 19 months of untouched pre-Oct-2025 data** (1,034 old
+   markets, labels 100% re-verified): high-prob YES underpricing persists (incumbent-style
+   signal +3.5..+7.6c/sh on old labels, event-t up to 4.8, positive 6/7 quarters), and
+   skip-slot regressions prove the causal direction — PM converges to options FV (24h beta
+   0.345), FV never chases PM. The edge only pays hedged — on old data too, raw EV ~0.
+   (results/improve/mechanism-extend)
+4. **Funding is a credit, not a cost**: the short-perp hedge earned +0.08..+0.11c/sh
+   (t up to 7.9), positive 8/10 months. Static full-delta beats rebalancing and dated-future
+   hedging. (results/improve/hedge-lab)
+5. **FV calibration improved**: hour-of-week seasonal vol-time halves the expiry-day
+   overpricing of 95-98c shares (OOS-confirmed); mark-IV smiles, RV blends, and fat tails
+   all rejected. (results/improve/fv-upgrade)
+6. **Execution improved**: S1 entries now rest at ask-1c for 30min before crossing
+   (structurally >= taker); maker-NO, previously "dead" via a sign bug, is actually
+   borderline-positive (+1.19c, t=1.9) — watch-listed, not adopted. All entry-rule
+   conditioning ideas (normalized gaps, filters) failed honestly and were rejected.
+
+## Revised bottom line
+- **Primary strategy: S2 maker-YES** (rest bid+1c at gap>2.5c, delta-hedged at fill, hold to
+  settlement): conservative +1.2-1.8c/sh, tape-verified upper bound +4.3c, plus ~+0.1c funding.
+- **S1 taker**: keep as aggressive-maker paper book only; its OOS evidence was mostly phantom
+  quotes. Do not size it until the paper track record proves it.
+- All live-bot bugs found (phantom pending resolution, midpoint-as-tape fills, stuck-position
+  deadlock, DST guard, fill-window caps) are fixed and deployed.
+- Expected returns at small size are correspondingly lower than the pre-audit projection:
+  plan around the maker book's conservative band (+1-2c/sh on ~50c entries, ~90-130 fills/wk
+  across BTC/ETH) until the paper record says otherwise.

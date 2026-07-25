@@ -19,10 +19,13 @@ signal that something has drifted (bad fills, stale FV, regime change) -> invest
 import sys, os, json, csv, math, pathlib, datetime as dt
 
 # (low, center, high) hedged EV per share, and expected win rate
+# REVISED 2026-07-24 after the phantom-quote audit (results/improve/code-audit):
+# taker OOS evidence largely evaporated (clean +0.7c, t~0); maker survives at
+# +1.2..+4.3c depending on fill convention. Bands widened/lowered accordingly.
 BANDS = {
-    "taker": {"ev": (0.010, 0.054, 0.100), "win": 0.43},
-    "maker": {"ev": (0.020, 0.043, 0.070), "win": 0.43},
-    "all":   {"ev": (0.015, 0.045, 0.090), "win": 0.43},
+    "taker": {"ev": (-0.010, 0.007, 0.040), "win": 0.43},
+    "maker": {"ev": (0.000, 0.020, 0.050), "win": 0.43},
+    "all":   {"ev": (0.000, 0.015, 0.045), "win": 0.43},
 }
 MIN_N = 20  # below this, EV band verdict is "small sample"
 

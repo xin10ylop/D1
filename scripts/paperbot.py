@@ -251,10 +251,23 @@ def pm_daily_ladders():
                     end = mk.get("endDate")
                     if not end:
                         continue
-                    T_pm = dt.datetime.fromisoformat(end.replace("Z", "+00:00")).timestamp() + 60
+                    end_dt = dt.datetime.fromisoformat(end.replace("Z", "+00:00"))
+                    T_pm = end_dt.timestamp() + 60
+                    # AUDIT FIX (DST guard): resolution is defined as the 12:00 ET candle.
+                    # Trust endDate only if it IS 12:00 ET; otherwise the settlement candle
+                    # lookup and tau are silently wrong (e.g. across the Nov 2026 DST shift).
+                    try:
+                        from zoneinfo import ZoneInfo
+                        et = end_dt.astimezone(ZoneInfo("America/New_York"))
+                        if (et.hour, et.minute, et.second) != (12, 0, 0):
+                            log(f"SKIP {mk.get('slug','')} endDate {end} is not 12:00 ET")
+                            continue
+                    except Exception:
+                        pass
                     out.append(dict(asset=asset, slug=mk.get("slug", ""), question=q,
                                     K=float(sm.group(1).replace(",", "")),
-                                    T_pm=T_pm, yes_token=toks[0]))
+                                    T_pm=T_pm, yes_token=toks[0],
+                                    condition_id=mk.get("conditionId", "")))
                 break
     return out
 
@@ -302,7 +315,7 @@ def resolve_positions(st):
             # last chance: did it actually trade through our limit before expiry
             # (covers fills that happened while the bot was down)?
             life = 1800 if p["mode"] == "am_pending" else 4 * 3600
-            low = traded_low_since(p["yes_token"], p.get("last_fill_check", p["placed_ts"]),
+            low = traded_low_since(p.get("condition_id", ""), p.get("last_fill_check", p["placed_ts"]),
                                    end_ts=min(p["placed_ts"] + life, p["T_pm"]))
             if low is not None and low <= p["entry"] + 1e-9:
                 p["mode"] = "maker" if p["mode"] == "maker_pending" else "taker"
@@ -315,11 +328,20 @@ def resolve_positions(st):
         sym = ASSETS[p["asset"]]
         S_T = binance_close_at(sym, p["T_pm"] - 60)  # candle labeled 12:00 ET opens at T_pm-60
         if S_T is None:
+            # AUDIT FIX: a permanently unfetchable settlement candle would lock this
+            # position's capital forever with no signal. Alert loudly once it is stale.
+            if now > p["T_pm"] + 6 * 3600:
+                log(f"ERROR STUCK POSITION {p['slug']} unresolved {int((now-p['T_pm'])/3600)}h "
+                    f"past T_pm — settlement candle at {int(p['T_pm']-60)} not found; "
+                    f"check endDate/DST alignment")
             still.append(p)
             continue
         won = S_T > p["K"]
         pm_pnl = (1.0 - p["entry"] if won else -p["entry"]) * p["shares"] - p["fee_paid"]
-        hedge_pnl = -p["delta"] * math.log(S_T / p["S_entry"]) * p["shares"]
+        # AUDIT FIX: a short perp with $notional = delta*shares earns -notional*(S_T/S0 - 1).
+        # The former log(S_T/S0) form overstated hedge P&L by delta*(e^r - 1 - r) >= 0
+        # (~+1c/share on the incumbent trade mix).
+        hedge_pnl = -p["delta"] * (S_T / p["S_entry"] - 1.0) * p["shares"]
         pnl = pm_pnl + hedge_pnl
         st["bankroll"] += pnl
         append_trade(dict(closed=dt.datetime.now(dt.timezone.utc).isoformat(), **{k: p[k] for k in
@@ -331,18 +353,37 @@ def resolve_positions(st):
     st["positions"] = still
 
 
-def traded_low_since(token_id, since_ts, end_ts=None):
-    """Lowest traded price for the token in [since_ts, end_ts] (CLOB price
-    history, 1-min fidelity). None if unavailable."""
+def traded_low_since(condition_id, since_ts, end_ts=None):
+    """AUDIT FIX: lowest ACTUAL YES sell-print in [since_ts, end_ts] from the data-api
+    trade tape. The previous implementation used clob prices-history, which returns the
+    MIDPOINT series (verified live: p == (bid+ask)/2), so a resting bid was credited a
+    "fill" whenever the mid dipped -- phantom fills with no trade. Only an aggressive
+    SELL print on the YES token at/below our limit can actually fill a resting YES bid.
+    Returns None if the tape is unavailable (caller must then NOT assume a fill)."""
     e = int(end_ts if end_ts else time.time())
-    r = http_json(f"https://clob.polymarket.com/prices-history?market={token_id}"
-                  f"&startTs={int(since_ts)}&endTs={e}&fidelity=1")
-    if not r or not r.get("history"):
-        return None
-    try:
-        return min(float(x["p"]) for x in r["history"])
-    except Exception:
-        return None
+    lows, offset = [], 0
+    while offset <= 2000:
+        r = http_json(f"https://data-api.polymarket.com/trades?market={condition_id}"
+                      f"&limit=500&offset={offset}")
+        if not isinstance(r, list):
+            return None if not lows else min(lows)
+        if not r:
+            break
+        for t in r:
+            try:
+                ts = float(t.get("timestamp", 0))
+                if ts > e:
+                    continue
+                if t.get("outcome") != "Yes" or str(t.get("side", "")).upper() != "SELL":
+                    continue
+                if ts >= since_ts:
+                    lows.append(float(t["price"]))
+            except Exception:
+                continue
+        if float(r[-1].get("timestamp", 0)) < since_ts:
+            break
+        offset += 500
+    return min(lows) if lows else None
 
 
 def check_maker_fills(st, books):
@@ -360,7 +401,13 @@ def check_maker_fills(st, books):
             b = clob_book(p["yes_token"])  # pending markets always get a book check
         filled = bool(b and b["ask"] <= p["entry"] + 1e-9)
         if not filled:
-            low = traded_low_since(p["yes_token"], p.get("last_fill_check", p["placed_ts"]))
+            # AUDIT FIX: cap the tape window at the order's life — after an outage,
+            # prints later than (placement + life) could not have filled an order
+            # that would already have been cancelled.
+            life = 1800 if p["mode"] == "am_pending" else 4 * 3600
+            low = traded_low_since(p.get("condition_id", ""),
+                                   p.get("last_fill_check", p["placed_ts"]),
+                                   end_ts=min(time.time(), p["placed_ts"] + life))
             filled = low is not None and low <= p["entry"] + 1e-9
         p["last_fill_check"] = time.time()
         if filled:
@@ -467,7 +514,8 @@ def scan_once():
             continue
         fee_paid = 0.0  # maker placement; fee charged only if the 30m taker fallback fires
         pos = dict(asset=s["asset"], slug=s["slug"], K=s["K"], T_pm=s["T_pm"],
-                   yes_token=s["yes_token"], mode=mode, entry=round(entry, 4),
+                   yes_token=s["yes_token"], condition_id=s.get("condition_id", ""),
+                   mode=mode, entry=round(entry, 4),
                    shares=round(shares, 2), fee_paid=round(fee_paid, 4),
                    delta=round(s["delta"], 3), S_entry=fv_ctx[s["asset"]]["S_bin"],
                    fv_at_entry=round(s["fv"], 4), capital=round(shares * cap_share, 2),

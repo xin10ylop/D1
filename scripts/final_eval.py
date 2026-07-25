@@ -56,7 +56,9 @@ def maker_family(allp, m, side, horizon_bars=16):
                 continue
             if side == "yes":
                 lim = r.bid + 0.01
-                if (fut.ask <= lim).any():
+                if lim >= r.ask:  # AUDIT FIX: crossing limit = taker, not a free maker fill
+                    continue
+                if ((fut.ask <= lim) & (fut.bid <= fut.ask)).any():
                     ev_raw = r.label - lim
                     ev_h = ev_raw - r.delta * r.ret_T
                     trades.append(dict(asset=r.asset, event=r.event, slug=r.slug, ts=r.ts,
@@ -79,7 +81,8 @@ def maker_family(allp, m, side, horizon_bars=16):
 def main():
     panels = [prep(a) for a in ["BTC", "ETH", "SOL", "XRP"]]
     allp = pd.concat(panels, ignore_index=True)
-    base = allp[(allp.ask > 0.02) & (allp.ask < 0.98) & (allp.spread <= 0.05)]
+    # AUDIT FIX: exclude crossed books (negative spread = phantom one-sided quotes)
+    base = allp[(allp.ask > 0.02) & (allp.ask < 0.98) & (allp.spread >= 0.0) & (allp.spread <= 0.05)]
     train, test = base[~base.is_test], base[base.is_test]
     alltr, allte = allp[~allp.is_test], allp[allp.is_test]
     print(f"train: {train.slug.nunique()} mkts {train.exp_dt.min().date()}->{train.exp_dt.max().date()}")
